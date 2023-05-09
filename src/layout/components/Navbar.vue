@@ -53,6 +53,7 @@ import ErrorLog from '@/components/ErrorLog'
 import Screenfull from '@/components/Screenfull'
 import SizeSelect from '@/components/SizeSelect'
 import Search from '@/components/HeaderSearch'
+import { sentryStatisticRecorder } from '@/mixin/statistic-mixin'
 
 export default {
   components: {
@@ -76,6 +77,7 @@ export default {
     },
     async logout() {
       await this.$store.dispatch('user/logout')
+      sentryStatisticRecorder.end()
       this.$router.push(`/login?redirect=${this.$route.fullPath}`)
     }
   }

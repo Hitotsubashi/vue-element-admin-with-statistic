@@ -1,64 +1,60 @@
 import * as Sentry from "@sentry/vue"
-import { mapGetters } from "vuex"
+import router from '@/router'
+import { getUsername } from "@/utils/auth"
+
+export const sentryStatisticRecorder = {
+  startTime: undefined,
+  endTime: undefined,
+  alreadyEnd: false,
+  // 统计PV、UV、IP数、来源、入口页面
+  start() {
+    this.alreadyEnd = false
+    this.startTime = performance.now()
+    Sentry.configureScope((scope) => {
+      scope
+        .setUser({
+          username: getUsername()
+        })
+        .setTags({
+          referrer: document.referrer || '地址栏直接键入',
+          entry: router.currentRoute.name
+        })
+    })
+    Sentry.captureMessage("user-statistic", {
+      level: "info"
+    })
+  },
+  visiting() {
+    Sentry.captureMessage('user-statistic:visiting', {
+      tags: {
+        route: router.currentRoute.name
+      },
+      level: "info"
+    })
+  },
+  end() {
+    if (this.alreadyEnd) return
+    this.alreadyEnd = true
+    this.endTime = performance.now()
+    Sentry.captureMessage("user-statistic:leave", {
+      tags: {
+        visitDuration: Math.round((this.endTime - this.startTime) / 1000)
+      },
+      level: "info"
+    })
+  }
+}
 
 export default {
-  data() {
-    return {
-      startTime: undefined,
-      endTime: undefined
-    }
-  },
-  mounted() {
-    this.uploadVisitData()
-    this.uploadVisitDuration()
-  },
-  methods: {
-    // 统计PV、UV、IP数、来源、入口页面
-    uploadVisitData() {
-      Sentry.captureMessage("user-statistic", {
-        user: {
-          username: this.username
-        },
-        tags: {
-          referrer: document.referrer || '地址栏直接键入',
-          entry: this.$route.name
-        },
-        level: "info"
-      })
-    },
-    // 统计跳出率和平均访问时长
-    uploadVisitDuration() {
-      this.$once("hook:mounted", () => {
-        this.startTime = performance.now()
-      })
-      this.$once("hook:beforeDestroy", () => {
-        this.endTime = performance.now()
-        Sentry.captureMessage("user-statistic:leave", {
-          tags: {
-            visitDuration: Math.round((this.endTime - this.startTime) / 1000)
-          },
-          level: "info"
-        })
-      })
-    },
-    // 统计受访页面
-    uploadVisitingData() {
-      Sentry.captureMessage('user-statistic:visiting', {
-        tags: {
-          route: this.$route.name
-        }
-      })
-    }
+  beforeDestroy() {
+    sentryStatisticRecorder.end()
   },
   watch: {
     '$route': {
       handler() {
-        this.uploadVisitingData()
+        sentryStatisticRecorder.visiting()
       },
       immediate: true
     }
-  },
-  computed: {
-    ...mapGetters({ username: "name" })
   }
 }
