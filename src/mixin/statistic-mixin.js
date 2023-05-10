@@ -17,7 +17,8 @@ export const sentryStatisticRecorder = {
         })
         .setTags({
           referrer: document.referrer || '地址栏直接键入',
-          entry: router.currentRoute.name
+          entry: router.currentRoute.name,
+          screen: `${window.screen.width}x${window.screen.height}`
         })
     })
     Sentry.captureMessage("user-statistic", {
@@ -25,22 +26,25 @@ export const sentryStatisticRecorder = {
     })
   },
   visiting() {
-    Sentry.captureMessage('user-statistic:visiting', {
-      tags: {
-        route: router.currentRoute.name
-      },
-      level: "info"
+    Sentry.withScope((scope) => {
+      scope.setTag('route', router.currentRoute.name)
+      Sentry.captureMessage('user-statistic:visiting', {
+        level: "info"
+      })
     })
   },
   end() {
     if (this.alreadyEnd) return
     this.alreadyEnd = true
     this.endTime = performance.now()
-    Sentry.captureMessage("user-statistic:leave", {
-      tags: {
+    Sentry.withScope((scope) => {
+      scope.setUser({
+        ...scope.getUser(),
         visitDuration: Math.round((this.endTime - this.startTime) / 1000)
-      },
-      level: "info"
+      })
+      Sentry.captureMessage("user-statistic:leave", {
+        level: "info"
+      })
     })
   }
 }
